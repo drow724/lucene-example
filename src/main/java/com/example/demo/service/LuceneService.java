@@ -41,27 +41,26 @@ public class LuceneService {
 
     @Scheduled(cron = "0 0/1 * * * ?")
     public void indexingClient() throws IOException {
-        Directory dir = NIOFSDirectory.open(Path.of("C:\\Users\\thdgu"));
-        IndexWriter writer = new IndexWriter(dir, new IndexWriterConfig(new KoreanAnalyzer()));
-        IndexSearcher indexSearcher = new IndexSearcher(DirectoryReader.open(dir));
+        try(Directory dir = NIOFSDirectory.open(Path.of("C:\\Users\\thdgu"));
+             IndexWriter writer = new IndexWriter(dir, new IndexWriterConfig(new KoreanAnalyzer()))) {
 
-        final Integer chunkSize = 100;
+            final Integer chunkSize = 100;
 
-        Pageable pageable = PageRequest.of(0, chunkSize);
-        Page<Member> page = luceneRepostory.findAll(pageable);
+            Pageable pageable = PageRequest.of(0, chunkSize);
+            Page<Member> page = luceneRepostory.findAll(pageable);
 
-        indexing(writer, page, indexSearcher);
+            indexing(writer, page);
 
-        while (page.hasNext()) {
-            page = luceneRepostory.findAll(page.nextPageable());
-            indexing(writer, page, indexSearcher);
+            while (page.hasNext()) {
+                page = luceneRepostory.findAll(page.nextPageable());
+                indexing(writer, page);
+            }
+
+            writer.commit();
+            writer.flush();
+        } catch (LockObtainFailedException e) {
+            System.out.println(e.getMessage());
         }
-
-        writer.commit();
-        writer.flush();
-        writer.close();
-
-        dir.close();
     }
 
     private void indexing(IndexWriter writer, Page<Member> page, IndexSearcher indexSearcher) {
